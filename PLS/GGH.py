@@ -44,21 +44,23 @@ class GGHScheme:
         real_part = message.real
         imag_part = message.imag  # Fixed typo
 
-        max_val = min(self.l, 5)
+        # max_val = min(self.l, 5)
+        max_val = 1
         r_real = np.random.randint(-max_val, max_val + 1, size=(self.n, 1), dtype=np.int32)
         r_imag = np.random.randint(-max_val, max_val + 1, size=(self.n, 1), dtype=np.int32)
 
         e_real = np.dot(self.B, real_part) + r_real  
         e_imag = np.dot(self.B, imag_part) + r_imag
-
+        # print("Error real\n", r_real)
+        # print("Error imag\n", r_imag)
         return e_real + 1j * e_imag  # Ensure result is a complex matrix
 
     def decrypt(self, e: np.ndarray) -> np.ndarray:
         """Decrypt the ciphertext e using the private basis R."""
         real_enc = e.real.round().astype(np.int32)
         imag_enc = e.imag.round().astype(np.int32)
-        print(real_enc)
-        print(imag_enc)
+        # print(real_enc)
+        # print(imag_enc)
         approx_real = solve(self.R, real_enc).round().astype(np.int32)
         approx_imag = solve(self.R, imag_enc).round().astype(np.int32)
 
