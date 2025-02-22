@@ -49,7 +49,7 @@ for M in M_values:
         
         for snr in SNR_dB:
             errors = 0
-            noise_var = (2/3)*(M-1)*10**(-snr / 10) / (N*log2M) #!!!!!!!!!!!!!!!!!!!!!!
+            noise_var = 10**(-snr / 10) / (N*log2M) #!!!!!!!!!!!!!!!!!!!!!!
             
             for _ in range(num_blocks):
                 bits = np.random.randint(0, 2, (N * log2M))  # Step 1: Bit Generation
