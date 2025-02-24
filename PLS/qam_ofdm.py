@@ -6,10 +6,10 @@ from scipy.fft import fft, ifft
 from time import time
 import GGH
 # Simulation Parameters
-N_values = [64, 128, 256, 512]  # Different values of N
+N_values = [32, 64, 128, 256, 512]  # Different values of N
 M_values = [16]  # QAM Modulation orders (64-QAM, 256-QAM)
-num_bits = 10**8  # Reduced to speed up simulation
-SNR_dB = np.arange(0, 91, 2.5)  # SNR range in dB
+num_bits = 5*(10**6)  # Reduced to speed up simulation
+SNR_dB = np.arange(10, 81, 2.5)  # SNR range in dB
 
 def calc_avg_power(signal, N):
     power = 0
