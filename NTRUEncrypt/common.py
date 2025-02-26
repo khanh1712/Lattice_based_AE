@@ -2,8 +2,14 @@ import numpy as np
 from poly import Poly
 from Crypto.Util.number import bytes_to_long, long_to_bytes
 import random 
-from Zmod import Zmod
 
+N = 107
+p = 3
+q = 64
+df = 14
+dg = 12
+d = 5
+    
 def random_ternary_list(d1, d2, degree):
     if d1 + d2 > degree + 1:
         raise ValueError("d1 + d2 cannot exceed degree + 1 (polynomial length)")
@@ -49,19 +55,42 @@ def poly_2_message(poly):
     
     return long_to_bytes(int(message))
 
-# df = 14
-# N = 107
-# Rp = 3
-# Rq = 32
+def complex_array_2_polys(m_list : np.ndarray[np.complex128], Rp : np.int64) -> np.ndarray[Poly]:
+    
+    poly_list = []
+    for k in range(len(m_list) // N + 1):
+        temp = m_list[N*k:N*(k + 1)]    
+        print(temp.real)
+        coeff = []
+        real_part = list(map(round,temp.real))
+        imag_part = list(map(round,temp.imag))
+        for i in range(len(temp)):
+            coeff.append(real_part[i])
+            coeff.append(imag_part[i])
+            
+        poly_list.append(Poly(Rp,coeff))
+    return np.array(poly_list, dtype=object)
 
-# f = Poly(Rq, [-1, 1, 1, 0, -1, 0, 1, 0, 0, 1, -1])
-# f_inv = Poly(Rq, [5, 9, 6, 16, 4, 15, 16, 22, 20, 18, 30])
+import numpy as np
 
-# #print(f.inv_mod_xN_prime_pow(11))
-# # Fq = Poly(Rq, f).inv_mod_xN(N)
+def polys_2_complex_array(poly_list: np.ndarray) -> np.ndarray:
+    complex_array = []
 
-# df = 14
+    for p in poly_list:
+        real_part = []
+        imag_part = []
 
-# r = random_ternary_list(df + 1, df, N - 1)
-# print(r)
-# print(Poly(Rq, r).inv_mod_xN_prime_pow(11))
+        for i, c in enumerate(p.coeffs):
+            if (i & 1) == 0:
+                real_part.append(c)
+            else:
+                imag_part.append(c)
+
+        real_part = np.array(real_part, dtype=np.complex128)
+        imag_part = np.array(imag_part, dtype=np.complex128)
+        complex_array.extend(real_part + 1j * imag_part)
+
+    return np.array(complex_array, dtype=np.complex128)
+
+            
+        
