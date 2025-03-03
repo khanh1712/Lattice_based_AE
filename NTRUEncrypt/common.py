@@ -57,9 +57,11 @@ def poly_2_message(poly):
 
 def complex_array_2_polys(m_list : np.ndarray[np.complex128], R : np.int64, block_size: int) -> np.ndarray[Poly]:
     
+    
     poly_list = []
-    for k in range(len(m_list)// block_size + 1):
-        temp = m_list[block_size*k:block_size*(k + 1)]   
+    for k in range(int(np.ceil(len(m_list)/ block_size))):
+        temp = m_list[block_size*k:block_size*(k + 1)]
+          
         coeff = []
         real_part = list(map(round,temp.real))
         imag_part = list(map(round,temp.imag))
@@ -72,15 +74,14 @@ def complex_array_2_polys(m_list : np.ndarray[np.complex128], R : np.int64, bloc
 
     return np.array(poly_list, dtype=object)
 
-def polys_2_complex_array(poly_list: np.ndarray, intial_len: list) -> np.ndarray:
-    complex_array = []
+def polys_2_complex_array(poly_list: np.ndarray[np.complex128], pad = None) -> np.ndarray[np.complex128]:
+    complex_array = np.array([])
 
     for j, p in enumerate(poly_list):
         real_part = []
         imag_part = []
-        print("dm:",len(p.coeffs))
-        if ((len(p.coeffs) & 1) == 1): p.coeffs = np.concatenate((p.coeffs, [0] * (intial_len[j] - len(p.coeffs))))            
-        print("dm1:",len(p.coeffs))
+        
+        if ((len(p.coeffs) & 1) == 1): p.coeffs = np.concatenate((p.coeffs, [0]))            
 
         for i, c in enumerate(p.coeffs):
             if ((i & 1) == 0):
@@ -88,11 +89,14 @@ def polys_2_complex_array(poly_list: np.ndarray, intial_len: list) -> np.ndarray
             else:
                 imag_part.append(c)
 
-        print("1:",len(real_part))
-        print("2:",len(imag_part))
-        real_part = np.array(real_part, dtype=np.complex128)
-        imag_part = np.array(imag_part, dtype=np.complex128)
-        complex_array += list(real_part + 1j * imag_part) 
+        real_part = np.array(real_part, dtype=np.int64)
+        imag_part = np.array(imag_part, dtype=np.int64)
+        
+        if pad != None:
+            complex_array = np.concatenate([complex_array, pad(real_part + 1j * imag_part)])
+        else: complex_array = np.concatenate([complex_array, real_part + 1j * imag_part])
+
+
 
     return np.array(complex_array, dtype=np.complex128)
 
