@@ -73,10 +73,14 @@ class LWE:
         imag_parts = np.imag(complex_array).astype(np.int64)
         
         concatenated = np.concatenate([real_parts, imag_parts])
-        return self.encrypt(concatenated)
+        c1, c2 = self.encrypt(concatenated)
+        
+        return c1[0] + 1j*c2[0]
     
     def decrypt_complex(self, c):
-        decrypted = self.decrypt(c)
+        real_parts = np.real(c).astype(np.int64)
+        imag_parts = np.imag(c).astype(np.int64)
+        decrypted = self.decrypt([real_parts, imag_parts])
         half_len = len(decrypted) // 2
         real_parts = decrypted[:half_len]
         imag_parts = decrypted[half_len:]
