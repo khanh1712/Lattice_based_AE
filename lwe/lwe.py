@@ -1,110 +1,83 @@
 import numpy as np
-import random
-import cmath
-import hashlib
-from Crypto.Cipher import AES
+from sage.stats.distributions.discrete_gaussian_integer import DiscreteGaussianDistributionIntegerSampler
 
-class ToyLWE:
-    def __init__(self, n, q, p):
-        self.n = n
-        self.q = q
+def random_matrix(n, m, sigma):
+    D = DiscreteGaussianDistributionIntegerSampler(sigma)
+    L = np.array([[np.int32(D()) for _ in range(m)] for __ in range(n)])
+    return L
+
+class LWE:
+    def __init__(self, n1, n2, l, p, q, sigma):
+
+        self.n1 = n1
+        self.n2 = n2
+        self.l = 2*l
         self.p = p
-        self.delta = round(q / p)
-        
-        self.S = np.array([random.randint(0, q-1) for _ in range(n)])
-    
-    def generate_matrix_from_seed(self, seed):
-        # Use a more cryptographically secure method to generate matrix A from seed
-        matrix = []
-        hash_input = seed
-        for i in range(self.n):
-            # Hash the seed concatenated with index to generate each element
-            hash_output = hashlib.sha256(hash_input).digest()
-            # Convert hash to integer and reduce modulo q
-            matrix.append(int.from_bytes(hash_output, 'big') % self.q)
-            hash_input = hash_output
-        return np.array(matrix)
-    
-    def encrypt_real(self, m_real):
-        if abs(m_real) >= self.p/2:
-            raise ValueError(f"Real part must have absolute value less than p/2={self.p/2}")
-        
-        m_shifted = (m_real + self.p//2) % self.p
-        
-        seed = random.randbytes(16)
-        
-        A = self.generate_matrix_from_seed(seed)
-        
-        e = random.randint(-self.delta//2, self.delta//2)
-        
-        dot_product = np.dot(A, self.S) % self.q
-        
-        b = (dot_product + self.delta * m_shifted + e) % self.q
-        
-        return seed, b
-    
-    def decrypt_real(self, seed, b):
-        A = self.generate_matrix_from_seed(seed)
-        
-        dot_product = np.dot(A, self.S) % self.q
-        x = (b - dot_product) % self.q
-        
-        if x > self.q // 2:
-            x = x - self.q
-            
-        m_shifted = round(x / self.delta)
-        
-        m_real = (m_shifted - self.p//2) % self.p
-        if m_real > self.p//2:
-            m_real -= self.p
-            
-        return m_real
-    
-    def encrypt_complex(self, m_complex):
-        m_real = int(round(m_complex.real))
-        m_imag = int(round(m_complex.imag))
-        
-        return (self.encrypt_real(m_real), self.encrypt_real(m_imag))
-    
-    def decrypt_complex(self, real_ciphertext, imag_ciphertext):
-        seed_real, b_real = real_ciphertext
-        seed_imag, b_imag = imag_ciphertext
-        
-        real_part = self.decrypt_real(seed_real, b_real)
-        imag_part = self.decrypt_real(seed_imag, b_imag)
-        
-        return complex(real_part, imag_part)
+        self.q = q
+        self.A = np.array([[np.random.randint(0, p) for _ in range(self.n2)] for __ in range(self.n1)])
+        self.sigma = sigma
+        self.R1 = None 
+        self.R2 = None  
+        self.P = None
 
-def encrypt_complex_array(lwe, complex_array):
-    return [lwe.encrypt_complex(complex_num) for complex_num in complex_array]
-
-def decrypt_complex_array(lwe, ciphertexts):
-    return [lwe.decrypt_complex(real_cipher, imag_cipher) for real_cipher, imag_cipher in ciphertexts]
-
-if __name__ == "__main__":
-    n = 500
-    q = 2**16
-    p = 256
+    def encode(self, m):
+        # Ensure proper type conversion
+        return ((self.p // self.q) * np.array(m, dtype=np.int64)).astype(np.int64)
     
-    lwe = ToyLWE(n, q, p)
+    def decode(self, c):
+        m = []
+        interval = self.p // (self.q * 2)  
+        range_ = self.p // self.q
+        for c_ in c:
+            is_zero = True
+            delta = c_ % self.p  
+            for scale in range(1, self.q):
+                if scale*range_ - interval <= delta <= scale*range_ + interval:
+                    m.append(scale)
+                    is_zero = False
+                    break
+            if is_zero == True: 
+                m.append(0)
+        return np.array(m, dtype=np.int64)
     
-    complex_array = [
-        complex(42, 73),
-        complex(-15, 30),
-        complex(100, -50),
-        complex(-120, -90)
-    ]
-    print(f"Original complex array: {complex_array}")
+    def gen_key(self):
+        self.R1 = random_matrix(self.n1, self.l, self.sigma)
+        self.R2 = random_matrix(self.n2, self.l, self.sigma)
+        self.P = (self.R1 - np.matmul(self.A, self.R2) % self.p) % self.p
+        return self.P
     
-    encrypted = encrypt_complex_array(lwe, complex_array)
-    print(f"Encrypted {len(encrypted)} complex numbers")
+    def encrypt(self, m):
+        m = np.array(m, dtype=np.int64).flatten()
+        if len(m) != self.l:
+            raise ValueError(f"Message length {len(m)} doesn't match l={self.l}")
+        
+        e1 = random_matrix(1, self.n1, self.sigma).astype(np.int64)
+        e2 = random_matrix(1, self.n2, self.sigma).astype(np.int64)
+        e3 = random_matrix(1, self.l, self.sigma).astype(np.int64)
+        e3 = (e3 + self.encode(m)) % self.p
+        c1 = (np.matmul(e1, self.A) % self.p + e2) % self.p
+        c2 = (np.matmul(e1, self.P) % self.p + e3) % self.p
+        return [c1, c2]
     
-    seed_real, b_real = encrypted[0][0]
-    seed_imag, b_imag = encrypted[0][1]
-    print(f"Sample ciphertext for real part seed: {seed_real}")
-    print(f"Sample ciphertext for real part b: {b_real}")
-    print(f"Sample ciphertext for imaginary part seed: {seed_imag}")
-    print(f"Sample ciphertext for imaginary part b: {b_imag}")
+    def decrypt(self, c):
+        c1, c2 = c
+        c1 = np.array(c1, dtype=np.int64)
+        c2 = np.array(c2, dtype=np.int64)
+        
+        m_with_error = (np.matmul(c1, self.R2) % self.p + c2) % self.p
+        return self.decode(m_with_error.flatten())
     
-    decrypted = decrypt_complex_array(lwe, encrypted)
-    print(f"Decrypted complex array: {decrypted}")
+    def encrypt_complex(self, complex_array):
+     
+        real_parts = np.real(complex_array).astype(np.int64)
+        imag_parts = np.imag(complex_array).astype(np.int64)
+        
+        concatenated = np.concatenate([real_parts, imag_parts])
+        return self.encrypt(concatenated)
+    
+    def decrypt_complex(self, c):
+        decrypted = self.decrypt(c)
+        half_len = len(decrypted) // 2
+        real_parts = decrypted[:half_len]
+        imag_parts = decrypted[half_len:]
+        return real_parts + 1j * imag_parts
