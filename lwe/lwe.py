@@ -22,7 +22,7 @@ class LWE:
 
     def encode(self, m):
         # Ensure proper type conversion
-        return ((self.p // self.q) * np.array(m, dtype=np.int64)).astype(np.int64)
+        return ((self.p // self.q) * ((np.array(m, dtype=np.int64)).astype(np.int64) % self.q))
     
     def decode(self, c):
         m = []
@@ -33,11 +33,14 @@ class LWE:
             delta = c_ % self.p  
             for scale in range(1, self.q):
                 if scale*range_ - interval <= delta <= scale*range_ + interval:
-                    m.append(scale)
+                    if scale % 2 == 0:
+                        m.append(scale - self.q)
+                    else: m.append(scale)
                     is_zero = False
                     break
             if is_zero == True: 
                 m.append(0)
+
         return np.array(m, dtype=np.int64)
     
     def gen_key(self):
@@ -48,13 +51,11 @@ class LWE:
     
     def encrypt(self, m):
         m = np.array(m, dtype=np.int64).flatten()
-        if len(m) != self.l:
-            raise ValueError(f"Message length {len(m)} doesn't match l={self.l}")
-        
         e1 = random_matrix(1, self.n1, self.sigma).astype(np.int64)
         e2 = random_matrix(1, self.n2, self.sigma).astype(np.int64)
         e3 = random_matrix(1, self.l, self.sigma).astype(np.int64)
         e3 = (e3 + self.encode(m)) % self.p
+    
         c1 = (np.matmul(e1, self.A) % self.p + e2) % self.p
         c2 = (np.matmul(e1, self.P) % self.p + e3) % self.p
         return [c1, c2]
